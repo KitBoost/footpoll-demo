@@ -1,0 +1,14 @@
+{
+  "id": "footpoll",
+  "name": "footpoll",
+  "version": "0.0.1",
+  "beta": true,
+  "description": "FootPoll provided a way for visitors in a space to vote with their feet when a presenter initiates a poll. The plugin allows components to be attached to objects and counts how many avatars are standing on each object.",
+  "longDescription": "FootPoll provided a way for visitors in a space to vote with their feet when a presenter initiates a poll. The plugin allows ",
+  "configuration": "TBD",
+  "category": "Social & Communication",
+  "businessId": "Id6dHeoyGS",
+  "price": 0,
+  "releaseNotes": "This is the first version.",
+  "entrypoint": ""
+}
