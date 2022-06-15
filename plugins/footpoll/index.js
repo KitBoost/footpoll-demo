@@ -1,17 +1,15 @@
 /**
- * This is the main entry point for your plugin.
- *
- * All information regarding plugin development can be found at
- * https://developer.vatom.com/plugins/plugins/
+ * Foot Poll
  *
  * @license MIT
- * @author Vatom Inc.
+ * @author Joe Sandmeyer
  */
 module.exports = class FootPollPlugin extends BasePlugin {
 
     /** Plugin info */
-    static id = "footpoll"
-    static name = "footpoll"
+    static get id()             { return 'footpoll-plugin' }
+    static get name()           { return 'Foot Poll' }    
+    static get description()    { return 'Visitors to a space can vote with their feet. This plugin counts the number of visitors standing on each linked polling target.' }
 
     /** Called on load */
     onLoad() {
