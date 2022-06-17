@@ -68,26 +68,82 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     })
 
   }// onLoad()
+  
+  onRevealPollResults(origThis) {
+    const ctClubs = 1;
+    const ctDiamonds = 3;
+    const ctHearts = 5;
+    const ctSpades = 7;
+    const strPollResults = "Poll results: "
+      + `${ctClubs} \u2663, ${ctDiamonds} \u2666, ${ctHearts} \u2665, ${ctSpades} \u2660`;
+    const htmlPollResults = `<div style="color: black; background-color: #ffffff; font-size: 24px; ">&nbsp;${strPollResults};&nbsp;</div>`;
+      
+    console.log(htmlPollResults);
+    
+    origThis.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+    
+    /* --- *
+    const toastID = this.menus.toast({
+      icon: this.paths.absolute('pollmenu-btn.png'),
+      text: strPollResults,
+      textColor: '#2DCA8C',
+      buttonColor: '#FFFFFF',
+      buttonText: 'buttonText', // 'Enable'
+      buttonAction: () => { console.log('clicked ack') },
+      buttonCancelText: 'buttonCancelText', // 'Disable'
+      buttonCancelAction: () => { console.log('clicked cancel') },
+      duration: 5000
+    });
+    console.log(toastID); // => 7
+    /* --- */
+  }
 
   onBtnTriggerPoll() {
+    this.user.getProperty('', 'choice').then(curChoice => {
+      console.log(`onBtnTriggerPoll old choice ${curChoice}`);
+    }).catch(err => {
+      console.warn('Error fetching old user choice -- ', err)
+    });
+
     //this.menus.alert("onBtnTriggerPoll")
-    console.log("onBtnTriggerPoll");
     this.castVote_OfCurUser('');
-    this.menus.postMessage({ action: 'hud-clear' })
+    this.menus.postMessage({ action: 'hud-clear' });
+    
+    const toastID = this.menus.toast({
+      icon: this.paths.absolute('pollmenu-btn.png'),
+      text: '5 seconds to vote with your feet.',
+      textColor: '#2DCA8C',
+      buttonColor: '#FFFFFF',
+      buttonText: ' ', // 'Enable'
+      buttonAction: () => { console.log('clicked ack') },
+      buttonCancelText: ' ', // 'Disable'
+      buttonCancelAction: () => { console.log('clicked cancel') },
+      duration: 5000
+    });
+    console.log(`toastID: ${toastID}`); // => 7
+    
+    const timeoutID = setTimeout(this.onRevealPollResults, 5000, this);
+    console.log(`timeoutID: ${timeoutID}`);
   }
 
   onBtnClubs() {
     this.castVote_OfCurUser('clubs');
     this.menus.postMessage({ action: 'hud-set',
       src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
-    })
+    });
+    
+    let objUserOldPos = this.user.getPosition();
+    console.dir(objUserOldPos);
+    
+    let objSetPosRet = this.user.setPosition(11,1,31,false);
+    console.dir(objSetPosRet);
   }
   
   onBtnDiamonds() {
     this.castVote_OfCurUser('diamonds');
     this.menus.postMessage({ action: 'hud-set',
       src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
-    })
+    });
   }
 
   onBtnHearts() {
