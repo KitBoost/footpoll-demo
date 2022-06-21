@@ -9,29 +9,18 @@
  */
 
 
-function isValidPollChoiceName(inName){
-  let isSatisfied = false;
-  
-  do {
-    if (typeof(inName)!=='string') break;
-    
-    let cleanString = inName.replace(/[^a-zA-Z0-9]/g, '');
-    
-    if (cleanString.length < 1) break;
-    if (cleanString !== inName) break;
-  } while(false);
-  
-  return isSatisfied;
-}// isValidPollChoiceName
-
-
+/* --- *
+import VoterStatus from './PollingToolsModule.js';
+/* --- *
+const PollingToolsModule = require("./PollingToolsModule.js");
+const VoterStatus = PollingToolsModule.VoterStatus;
+/* --- */
 class VoterStatus {
 
   constructor(inUserID){
     console.log(`VoterStatus constructor inUserID ${inUserID}`);
 
     this.userID = inUserID;
-    //this.pollChoice   = '';
     this.resetPollChoice();
   }// constructor()
   
@@ -58,6 +47,23 @@ class VoterStatus {
   }
   
 }// class VoterStatus
+/* --- */
+
+
+function isValidPollChoiceName(inName){
+  let isSatisfied = false;
+  
+  do {
+    if (typeof(inName)!=='string') break;
+    
+    let cleanString = inName.replace(/[^a-zA-Z0-9]/g, '');
+    
+    if (cleanString.length < 1) break;
+    if (cleanString !== inName) break;
+  } while(false);
+  
+  return isSatisfied;
+}// isValidPollChoiceName
 
 
 class PollStatus {
@@ -91,17 +97,10 @@ class PollStatus {
   resetForNextPoll(){
     this.pollsterUserID      = null;
     //
-    //this.isTallyInProgress   = false;
-    //this.isPollRequested     = false;
-    //this.didIRequestPoll     = false;
-    //
-    //this.amIPollster         = false;
-    //this.isMyBallotSubmitted = false;
-    
     for (let key in this.tally) {
       this.tally[key] = 0;
     }
-
+    //
     console.log('eo Pollstatus.resetForNextPoll');
     console.dir(this);
   }
@@ -116,10 +115,6 @@ class PollStatus {
       this.pollsterUserID = inPollsterUserID;
     }
   }// hearAboutNewPoll
-  
-  hearAboutCleanup(){
-    this.resetForNextPoll();
-  }// hearAboutCleanup
   
   amIThePollster(inMyUserID) {
     console.log('eo Pollstatus.amIThePollster');
@@ -144,12 +139,8 @@ class PollStatus {
   }
   
   incrementCountForSpecificChoice(inChoice){
-    //console.log(`I am ${thisPollster.myVoterStatus.userID} in pollsterRequestBallots()`);
-    console.log(`begin incrementCountForSpecificChoice()`);
-    console.dir(this);
-    //
     let foundKeyMatch = false;
-      
+    //
     for (let key in this.tally) {
       if (inChoice == key) {
         this.tally[key]++;
@@ -157,39 +148,12 @@ class PollStatus {
         break;
       }
     }
-    
+    //
     if (! foundKeyMatch && this.isUsingCatchAll){
       this.tally[this.catchAllKey]++;
     }
   }// incrementCountForSpecificChoice()
   
-  getCountForSpecificChoice(inChoice){
-    let foundKeyMatch = false;
-    let retVal = 0;
-    //  
-    for (let key in this.tally) {
-      if (inChoice == key) {
-        retVal = this.tally[key];
-        foundKeyMatch = true;
-        break;
-      }
-    }
-    //
-    // Return catchall count only when isUsingCatchAll and exact match to catchall key.
-    if (! foundKeyMatch){
-      throw 'Invalid choice.';
-    }
-    //
-    return retVal;
-  }// getCountForSpecificChoice()
-
-  getCountForCatchall(){
-    if (this.isUsingCatchAll){
-      return getCountForSpecificChoice(catchAllKey);
-    }
-    return 0;
-  }// getCountForSpecificChoice()
-
   getCountForPublishedChoice(inChoice){
     let foundKeyMatch = false;
     let retVal = 0;
@@ -209,6 +173,13 @@ class PollStatus {
     //
     return retVal;
   }// getCountForPublishedChoice()
+
+  getCountForPublishedCatchall(){
+    if (this.isUsingCatchAll){
+      return getCountForPublishedChoice(catchAllKey);
+    }
+    return 0;
+  }// getCountForPublishedCatchall()
 
   importPublshedTally_FromJsonString(inTallyJsonString) {
     this.recentPublishedTally = JSON.parse(inTallyJsonString);
@@ -328,7 +299,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       this.onResultsReceived(data.tally);
     } else if (data.action === 'cleanup-after-poll') {
       console.log(`onMessage cleanup`);
-      this.myPollStatus.hearAboutCleanup();
+      this.onCleanupAfterPoll();
     } else {
       console.log(`onMessage unrecognized action ${data.action}`);
     }
@@ -352,23 +323,6 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     if (! amIThePollster) return;
     
     thisInstance.messages.send({ action:'publishing-results', tally: thisInstance.myPollStatus.exportTally_AsJsonString() }, true);
-  
-    /* --- *
-    const ctClubs     = thisInstance.myPollStatus.getCountForSpecificChoice('clubs');
-    const ctDiamonds  = thisInstance.myPollStatus.getCountForSpecificChoice('diamonds');
-    const ctHearts    = thisInstance.myPollStatus.getCountForSpecificChoice('hearts');
-    const ctSpades    = thisInstance.myPollStatus.getCountForSpecificChoice('spades');
-    
-    const strPollResults = "Poll results:<br>"
-      + `${ctClubs} \u2663<br>${ctDiamonds} \u2666<br>${ctHearts} \u2665<br>${ctSpades} \u2660`;
-    const htmlPollResults = `<div style="color: black; background-color: #ffffff; font-size: 24px; ">${strPollResults}</div>`;
-  
-    console.log(`I am ${thisInstance.myVoterStatus.userID} in pollsterTally()`);
-
-    console.log(htmlPollResults);
-    
-    thisInstance.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
-    /* --- */
   }// pollsterTally()
   
   onResultsReceived(inPublishedTally) {
@@ -376,22 +330,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     console.dir(inPublishedTally);
     //
     this.myPollStatus.importPublshedTally_FromJsonString(inPublishedTally);
-  
-    const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
-    const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
-    const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
-    const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
-    
-    const strPollResults = "Poll results:<br>"
-      + `${ctClubs} \u2663<br>${ctDiamonds} \u2666<br>${ctHearts} \u2665<br>${ctSpades} \u2660`;
-    const htmlPollResults = `<div style="color: black; background-color: #ffffff; font-size: 24px; ">${strPollResults}</div>`;
-  
-    console.log(`I am ${this.myVoterStatus.userID} in onResultsReceived()`);
-
-    console.log(htmlPollResults);
-    
-    this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+    this.hudShowPublishedTally();
   }// onResultsReceived()
+  
+  onCleanupAfterPoll() {
+    this.myPollStatus.resetForNextPoll();
+    
+  }// onCleanupAfterPoll()
 
   onBtnTriggerPoll() {
     console.log(`onBtnTriggerPoll by ${this.myVoterStatus.userID}`);
@@ -424,22 +369,23 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     // T+10 sec: Pollster finalizes tally.
     const timeoutID_Tally = setTimeout(this.pollsterTally, 10000, this);
     
-    // 10 < T sec: Cleanup and relinquish.
-    // this.messages.send({ action:'cleanup-after-poll' }, true);  
+    // 10< T <15: Publish results.
+    // this.messages.send({ action:'publishing-results' }, true);
+    
+    // T+15 sec: Cleanup after poll
+    // this.messages.send({ action:'cleanup-after-poll' }, true);
     
     //console.log(`timeoutID: ${timeoutID_RequestBallots}`);
     //console.log(`timeoutID: ${timeoutID_Tally}`);
   }// onBtnTriggerPoll
   
   onBtnTriggerNudge() {
-    this.myPollStatus.hearAboutCleanup();
+    this.myPollStatus.resetForNextPoll();
   }
 
   onBtnClubs() {
     this.castVote_OfCurUser('clubs');
-    this.menus.postMessage({ action: 'hud-set',
-      src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
-    });
+    this.hudShowChoice('clubs');
     
     // let objUserOldPos = this.user.getPosition();
     // console.dir(objUserOldPos); // promise
@@ -449,23 +395,17 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   
   onBtnDiamonds() {
     this.castVote_OfCurUser('diamonds');
-    this.menus.postMessage({ action: 'hud-set',
-      src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
-    });
+    this.hudShowChoice('diamonds');
   }
 
   onBtnHearts() {
     this.castVote_OfCurUser('hearts');
-    this.menus.postMessage({ action: 'hud-set',
-      src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&hearts;&nbsp;</div>'
-    });
+    this.hudShowChoice('hearts');
   }
 
   onBtnSpades() {
     this.castVote_OfCurUser('spades');
-    this.menus.postMessage({ action: 'hud-set',
-      src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
-    });
+    this.hudShowChoice('spades');
   }
   
   castVote_OfCurUser(inChoice) {
@@ -503,5 +443,48 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     })
     /* --- */
   }
+  
+  hudShowChoice( inChoice ) {
+    if ('clubs' == inChoice){
+      this.menus.postMessage({ action: 'hud-set',
+        src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
+      });
+    }else if('diamonds' == inChoice){
+      this.menus.postMessage({ action: 'hud-set',
+        src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
+      });
+    }else if('hearts' == inChoice){
+      this.menus.postMessage({ action: 'hud-set',
+        src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&hearts;&nbsp;</div>'
+      });
+    }else if('spades' == inChoice){
+      this.menus.postMessage({ action: 'hud-set',
+        src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
+      });
+    }else {
+      // No choice to show so clear hud.
+      this.menus.postMessage({ action: 'hud-clear' });
+    }
+  }// hudShowChoice()
+  
+  hudShowPublishedTally() {
+    const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
+    const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
+    const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
+    const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
+    
+    const htmlPollResults
+        = '<div style="color: black; background-color: #ffffff; font-size: 24px;">'
+            + 'Poll results:'
+            + `<br>${ctClubs} \u2663`
+            + `<br>${ctDiamonds} <span style="color: red;">\u2666</span>`
+            + `<br>${ctHearts} <span style="color: red;">\u2665</span>`
+            + `<br>${ctSpades} \u2660`
+        + '</div>';
+
+    console.log(htmlPollResults);
+    
+    this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+  }// hudShowPublishedTally()
 
 }// class PollMenuPlugin
