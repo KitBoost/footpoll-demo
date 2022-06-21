@@ -284,14 +284,19 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       });
       // console.log(`toastID: ${toastID}`); // toastID is a promise
     } else if (data.action === 'requesting-ballots') {
+      const theChoice = this.myVoterStatus.pollChoice;
+      console.log(`onMessage requesting-ballots send choice ${theChoice} to pollster.`);
+      this.messages.send({ action:'sending-ballot', choice: theChoice }, true);
+      /* --- *
       this.user.getProperty('', 'choice').then(curChoice => {
         console.log(`onMessage requesting-ballots send choice ${curChoice} to ${data.pollster}`);
         this.messages.send({ action:'sending-ballot', choice: curChoice }, true, data.pollster);
       }).catch(err => {
         console.warn('Error fetching user choice -- onMessage requesting-ballots', err)
       });
+      /* --- */
     } else if (data.action === 'sending-ballot') {
-      // This message was addressed directly to a pollster.
+      // This message was addressed directly to me as pollster.
       console.log(`onMessage increment choice ${data.choice}`);
       this.myPollStatus.incrementCountForSpecificChoice(data.choice);
     } else if (data.action === 'publishing-results') {
@@ -305,25 +310,30 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     }
   }// onMessage
 
-  pollsterRequestBallots(thisInstance) {
+  instanceRequestBallots(thisInstance) {
     // thisInstance param is a workaround for 'this' context getting lost from setTimeout() callback.
-    console.log(`I am ${thisInstance.myVoterStatus.userID} in pollsterRequestBallots()`);
+    console.log(`I am ${thisInstance.myVoterStatus.userID} in instanceRequestBallots()`);
     //
     thisInstance.messages.send({ action:'requesting-ballots', pollster: thisInstance.myVoterStatus.userID }, true);
   }// onRequestPollResults
   
-  pollsterTally(thisInstance) {
+  instanceTally(thisInstance) {
     // thisInstance param is a workaround for 'this' context getting lost from setTimeout() callback.
-    console.log(`begin pollsterTally() thisInstance obj follows:`);
+    console.log(`begin instanceTally() thisInstance obj follows:`);
     console.dir(thisInstance);
     
     let amIThePollster = thisInstance.myPollStatus.amIThePollster( thisInstance.myVoterStatus.userID );
     
-    console.log(`step pollsterTally() amIThePollster ${amIThePollster}`);
+    console.log(`step instanceTally() amIThePollster ${amIThePollster}`);
     if (! amIThePollster) return;
     
     thisInstance.messages.send({ action:'publishing-results', tally: thisInstance.myPollStatus.exportTally_AsJsonString() }, true);
-  }// pollsterTally()
+  }// instanceTally()
+  
+  instanceDoneShowingResults(thisInstance) {
+    // thisInstance param is a workaround for 'this' context getting lost from setTimeout() callback.
+    thisInstance.messages.send({ action:'cleanup-after-poll' }, true);
+  }// instanceDoneShowingResults()
   
   onResultsReceived(inPublishedTally) {
     console.log(`onResultsReceived by ${this.myVoterStatus.userID}`);
@@ -331,11 +341,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //
     this.myPollStatus.importPublshedTally_FromJsonString(inPublishedTally);
     this.hudShowPublishedTally();
+    //
+    const timeoutID_ShowingResults = setTimeout(this.instanceDoneShowingResults, 5000, this);
   }// onResultsReceived()
   
   onCleanupAfterPoll() {
     this.myPollStatus.resetForNextPoll();
-    
+    this.hudShowChoice( this.myVoterStatus.pollChoice );
   }// onCleanupAfterPoll()
 
   onBtnTriggerPoll() {
@@ -361,13 +373,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     this.messages.send({ action:'announcing-poll', pollster: this.myVoterStatus.userID }, true)
     
     // T+5 sec: Pollster broadcast 'requesting-ballots' for all to immediately reply to pollster return address.
-    const timeoutID_RequestBallots = setTimeout(this.pollsterRequestBallots, 5000, this);
+    const timeoutID_RequestBallots = setTimeout(this.instanceRequestBallots, 5000, this);
     
     // 5< T <10: Each user has a chance to reply via 'sending-ballot' message with ballot or abstension.
     // Pollster counts the ballots as they arrive
       
     // T+10 sec: Pollster finalizes tally.
-    const timeoutID_Tally = setTimeout(this.pollsterTally, 10000, this);
+    const timeoutID_Tally = setTimeout(this.instanceTally, 10000, this);
     
     // 10< T <15: Publish results.
     // this.messages.send({ action:'publishing-results' }, true);
@@ -409,6 +421,9 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }
   
   castVote_OfCurUser(inChoice) {
+    this.myVoterStatus.pollChoice = inChoice;
+    
+    /* --- *
     const choiceProp = { choice: inChoice };
   
     //console.dir(choiceProp);
