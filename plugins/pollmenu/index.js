@@ -134,7 +134,7 @@ class VoterStatus {
       }
     }
     // No pads nor overrides affecting.
-    return isHitChoice;
+    return '';
   }// onUserPositionUpdate()
   
   pushNewPad(inLabel, inPosition, inRadius){
@@ -278,9 +278,14 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   static get description()    { return 'Presents a menu to query poll results.' };
   
   // Client instance properties
-  padList       = [];   // List of pads that trigger a poll choice when near.
-  myVoterStatus = null; // My status as a voter.
-  myPollStatus  = null; // Status of current or recent poll.
+  myVoterStatus     = null;   // My status as a voter.
+  myPollStatus      = null;   // Status of current or recent poll.
+  myHudState        = null;   // What is currently showing on the hud?
+  
+  // Heartbeat timer counts lifetime of this instance in Bims = BigInt milliseconds.
+  myHeartbeatTimer  = null;   // Interval timer triggers this.onHeartbeat()
+  myHeartbeatBims   = BigInt(250);
+  myLifetimeBims    = BigInt(0);
   
   onLoad() {
     this.myPollStatus = new PollStatus(
@@ -348,6 +353,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       action: () => this.onBtnTriggerNudge(),
       section: 'controls'
     })
+    //
+    myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims))
   }// onLoad()
   
   onMessage(data) {
@@ -469,6 +476,22 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //console.log(`timeoutID: ${timeoutID_RequestBallots}`);
     //console.log(`timeoutID: ${timeoutID_Tally}`);
   }// onBtnTriggerPoll
+  
+  onHeartbeat() {
+    this.myLifetimeBims += this.myHeartbeatBims;
+    //
+    this.user.getPosition().then(inPosition => {
+      let existingChoice = this.myVoterStatus.onUserPositionUpdate(inPosition);
+      //
+//      this.updateHudView();
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
+    
+    if ((this.myLifetimeBims % BigInt(2 * 60 * 1000)) < this.myHeartbeatBims){
+      console.log(`onHeartbeat ${this.myLifetimeBims} lifetime at a 2 min milestone`);
+    }
+  }// onHeartbeat()
   
   onBtnTriggerNudge() {
     this.myPollStatus.resetForNextPoll();
