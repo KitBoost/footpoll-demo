@@ -27,6 +27,8 @@ function isValidPollChoiceName(inName){
     
     if (cleanString.length < 1) break;
     if (cleanString !== inName) break;
+    
+    isSatisfied = true;
   } while(false);
   
   return isSatisfied;
@@ -38,7 +40,7 @@ class LabeledChoiceTriggerPad {
   constructor(inLabel, inPosition, inRadius){
     console.log(`LabeledPosition constructor ${inLabel} ${inPosition} ${inRadius}`);
     if (! isValidPollChoiceName(inLabel)){
-      throw `Invalid poll choice name :${inLabel}`;
+      throw `Invalid label name :${inLabel}:`;
     }
 
     this.label = inLabel;
@@ -65,10 +67,11 @@ class LabeledChoiceTriggerPad {
 
 class VoterStatus {
 
-  constructor(inUserID, inDefaultOverrideRadius = 0.5){
+  constructor(inUserID, inAbstainKey, inDefaultOverrideRadius = 0.5){
     console.log(`VoterStatus constructor inUserID ${inUserID}`);
     //
     this.userID = inUserID;
+    this.abstainKey = inAbstainKey;
     this.choiceOverridePosition = null;
     this.choiceOverrideRadius = 0;
     this.DefaultOverrideRadius = inDefaultOverrideRadius;
@@ -95,14 +98,14 @@ class VoterStatus {
   }
 
   resetPollChoice(){
-    this.pollChoice = '';
+    this.pollChoice = this.abstainKey;
   }
   
   setChoiceOverride(inChoice, inPosition, inRadius = this.DefaultOverrideRadius){
     console.log(`VoterStatus setChoiceOverride ${inChoice} ${inPosition} ${inRadius}`);
     //
     if (! isValidPollChoiceName(inChoice)){
-      throw `Invalid poll choice name :${inChoice}`;
+      throw `Invalid poll choice name :${inChoice}:`;
     }
     //
     this.pollChoice = inChoice;
@@ -134,7 +137,7 @@ class VoterStatus {
       }
     }
     // No pads nor overrides affecting.
-    return '';
+    return this.abstainKey;
   }// onUserPositionUpdate()
   
   pushNewPad(inLabel, inPosition, inRadius){
@@ -289,11 +292,11 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   
   onLoad() {
     this.myPollStatus = new PollStatus(
-      ['clubs', 'diamonds', 'hearts', 'spades'], 'abstentions');
+      ['clubs', 'diamonds', 'hearts', 'spades'], 'abstain');
     //
     // Who am I?
     this.user.getID().then(inUserID => {
-      this.myVoterStatus = new VoterStatus(inUserID);
+      this.myVoterStatus = new VoterStatus(inUserID, 'abstain');
       console.log(`I am ${this.myVoterStatus.userID}`);
     }).catch(err => {
       console.warn('Error fetching this.user.getID() in onLoad() -- ', err)
@@ -426,14 +429,15 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     console.dir(inPublishedTally);
     //
     this.myPollStatus.importPublshedTally_FromJsonString(inPublishedTally);
-    this.hudShowPublishedTally();
+    this.updateHudState('tally-wanted');
     //
     const timeoutID_ShowingResults = setTimeout(this.instanceDoneShowingResults, 5000, this);
   }// onResultsReceived()
   
   onCleanupAfterPoll() {
     this.myPollStatus.resetForNextPoll();
-    this.hudShowChoice( this.myVoterStatus.pollChoice );
+    //this.hudShowChoice( this.myVoterStatus.pollChoice );
+    this.updateHudState();
   }// onCleanupAfterPoll()
 
   onBtnTriggerPoll() {
@@ -489,6 +493,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
 
   onBtnClubs() {
     this.user.getPosition().then(inPosition => {
+      console.log(`onBtnClubs isValidPollChoiceName('clubs') ${isValidPollChoiceName('clubs')}`);
+      //
       this.myVoterStatus.setChoiceOverride('clubs', inPosition);
       //this.hudShowChoice('clubs');
     }).catch(err => {
@@ -498,6 +504,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   
   onBtnDiamonds() {
     this.user.getPosition().then(inPosition => {
+      console.log(`onBtnClubs isValidPollChoiceName('diamonds') ${isValidPollChoiceName('diamonds')}`);
+      //
       this.myVoterStatus.setChoiceOverride('diamonds', inPosition);
       //this.hudShowChoice('diamonds');
     }).catch(err => {
@@ -507,6 +515,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
 
   onBtnHearts() {
     this.user.getPosition().then(inPosition => {
+      console.log(`onBtnClubs isValidPollChoiceName('hearts') ${isValidPollChoiceName('hearts')}`);
+      //
       this.myVoterStatus.setChoiceOverride('hearts', inPosition);
       //this.hudShowChoice('hearts');
     }).catch(err => {
@@ -516,6 +526,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
 
   onBtnSpades() {
     this.user.getPosition().then(inPosition => {
+      console.log(`onBtnClubs isValidPollChoiceName('spades') ${isValidPollChoiceName('spades')}`);
+      //
       this.myVoterStatus.setChoiceOverride('spades', inPosition);
       //this.hudShowChoice('spades');
     }).catch(err => {
@@ -561,7 +573,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //  ||  ('diamonds'       == previousHudState)
     //  ||  ('hearts'         == previousHudState)
     //  ||  ('spades'         == previousHudState)
-    //  ||  anything else is treated as abstention
+    //  ||  ('abstain'        == previousHudState)
     //
     let theChoice = this.myVoterStatus.pollChoice;
     //
@@ -586,8 +598,12 @@ module.exports = class PollMenuPlugin extends BasePlugin {
           src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
         });
       }else {
+        if ('abstain' != theChoice){
+          console.error(`updateHudView expected 'abstain' but got ${theChoice}`);
+        }
         // No choice to show so clear hud.
         this.menus.postMessage({ action: 'hud-clear' });
+        //console.log(`updateHudView old new _${}_${}_`);
       }
       //
       this.myHudState = theChoice;
