@@ -585,26 +585,86 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }// hudShowChoice()
   
   hudShowPublishedTally() {
-    const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
-    const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
-    const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
-    const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
+    let previousHudState = this.myHudState;
+    //
+    if(! previousHudState){
+      previousHudState = 'choice-wanted';
+    }
+    //
+    if('showing-tally' == previousHudState){
+      return;
+    }
+    //
+    if('tally-wanted' == previousHudState){
+      const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
+      const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
+      const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
+      const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
     
-    const htmlPollResults
-        = '<div style="color: black; background-color: #ffffff; font-size: 24px;">'
-            + 'Poll results:'
-            + `<br>${ctClubs} \u2663`
-            + `<br>${ctDiamonds} <span style="color: red;">\u2666</span>`
-            + `<br>${ctHearts} <span style="color: red;">\u2665</span>`
-            + `<br>${ctSpades} \u2660`
-        + '</div>';
+      const htmlPollResults
+          = '<div style="color: black; background-color: #ffffff; font-size: 24px;">'
+              + 'Poll results:'
+              + `<br>${ctClubs} \u2663`
+              + `<br>${ctDiamonds} <span style="color: red;">\u2666</span>`
+              + `<br>${ctHearts} <span style="color: red;">\u2665</span>`
+              + `<br>${ctSpades} \u2660`
+          + '</div>';
 
-    console.log(htmlPollResults);
+      console.log(htmlPollResults);
     
-    this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+      this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+      this.myHudState = 'showing-tally';
+      return;
+    }
+    // Remaining possibilities include:
+    //  ||  ('choice-wanted'  == previousHudState)
+    //  ||  ('clubs'          == previousHudState)
+    //  ||  ('diamonds'       == previousHudState)
+    //  ||  ('hearts'         == previousHudState)
+    //  ||  ('spades'         == previousHudState)
+    //  ||  anything else is treated as abstention
+    //
+    let theChoice = this.myVoterStatus.pollChoice;
+    //
+    if(     ('choice-wanted'  == previousHudState)
+        ||  (theChoice        != previousHudState)
+    ){
+
+      if ('clubs' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
+        });
+      }else if('diamonds' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
+        });
+      }else if('hearts' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&hearts;&nbsp;</div>'
+        });
+      }else if('spades' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
+        });
+      }else {
+        // No choice to show so clear hud.
+        this.menus.postMessage({ action: 'hud-clear' });
+      }
+      //
+      this.myHudState = theChoice;
+      return;
+    }
+    //throw 'Unhandled case in updateHudView()';
   }// hudShowPublishedTally()
   
   updateHudView() {
+    let previousHudState = this.myHudState;
+    //
+    const htmlPollResults = '';
+    
+    this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+    this.myHudState = 'showing-tally';
+    return;
   }// updateHudView()
   
   updateHudState(inState = 'choice-wanted') {
