@@ -352,9 +352,9 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       adminOnly: true,
       action: () => this.onBtnTriggerNudge(),
       section: 'controls'
-    })
+    });
     //
-    myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims))
+    this.myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims));
   }// onLoad()
   
   onMessage(data) {
@@ -603,5 +603,12 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     
     this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
   }// hudShowPublishedTally()
+  
+  updateHudView() {
+  }// updateHudView()
+  
+  updateHudState(inState = 'choice-wanted') {
+    this.myHudState = inState;
+  }// updateHudState()
 
 }// class PollMenuPlugin
