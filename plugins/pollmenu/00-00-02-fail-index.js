@@ -445,16 +445,6 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       return;
     }
     
-    /* --- *
-    this.user.getProperty('', 'choice').then(curChoice => {
-      console.log(`onBtnTriggerPoll old choice ${curChoice}`);
-    }).catch(err => {
-      console.warn('Error fetching old user choice -- ', err)
-    });
-    //this.castVote_OfCurUser('');
-    //this.menus.postMessage({ action: 'hud-clear' });
-    /* --- */
-    
     // T+0 sec: Pollster broadcast 'announcing-poll' so all users can start moving toward a choice.
     this.messages.send({ action:'announcing-poll', pollster: this.myVoterStatus.userID }, true)
     
@@ -504,12 +494,6 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     }).catch(err => {
       console.warn('Error fetching cur user position -- ', err)
     });
-    //const choiceOverride = 'clubs';
-    //this.castVote_OfCurUser('clubs');
-    // let objUserOldPos = this.user.getPosition();
-    // console.dir(objUserOldPos); // promise
-    // let objSetPosRet = this.user.setPosition(11,1,31,false);
-    // console.dir(objSetPosRet); // promise
   }
   
   onBtnDiamonds() {
@@ -539,49 +523,6 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     });
   }
 
-
-  /* --- *
-  castVote_OfCurUser(inChoice) {
-    this.myVoterStatus.pollChoice = inChoice;
-    //this.myVoterStatus.setChoiceOverride(inChoice, inPosition);
-    /* --- *
-    const choiceProp = { choice: inChoice };
-  
-    //console.dir(choiceProp);
-    this.user.setProperties(choiceProp);
-  
-    this.user.getID().then(inUserID => {
-      var strCurUserId = inUserID;
-      console.log(`CurUserId ${strCurUserId} Votes ${inChoice}`);
-      
-      this.user.getProperties('').then(inUserProps => {
-        var strjsonCurUserProps = JSON.stringify(inUserProps);
-        console.log(`CurUserProps ${strjsonCurUserProps}`);
-        //console.dir(inUserProps);
-      }).catch(err => {
-        console.warn('Error fetching cur user props -- ', err)
-      })
-
-      //console.dir(this.user.getProperties(strCurUserId));
-      //console.dir(this.user.getProperties(''));
-    }).catch(err => {
-      console.warn('Error fetching cur user ID in castVote_OfCurUser() -- ', err)
-    })
-    
-    /* --- *
-    this.user.getProperties('').then(inUserProps => {
-      var strjsonCurUserProps = JSON.stringify(inUserProps);
-      console.log(`CurUserProps ${strjsonCurUserProps} Votes ${choice}`);
-      console.log(inUserProps);
-      console.dir(inUserProps);
-    }).catch(err => {
-      console.warn('Error fetching cur user props -- ', err)
-    })
-    /* --- *
-  }
-  /* --- */
-  
-  
   updateHudView() {
     let previousHudState = this.myHudState;
     //
@@ -611,7 +552,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       console.log(htmlPollResults);
     
       this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
-      this.myHudState = 'showing-tally'';
+      this.myHudState = 'showing-tally';
       return;
     }
     // Remaining possibilities include:
