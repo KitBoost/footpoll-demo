@@ -278,9 +278,14 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   static get description()    { return 'Presents a menu to query poll results.' };
   
   // Client instance properties
-  padList       = [];   // List of pads that trigger a poll choice when near.
-  myVoterStatus = null; // My status as a voter.
-  myPollStatus  = null; // Status of current or recent poll.
+  myVoterStatus     = null;   // My status as a voter.
+  myPollStatus      = null;   // Status of current or recent poll.
+  myHudState        = null;   // What is currently showing on the hud?
+  
+  // Heartbeat timer counts lifetime of this instance in Bims = BigInt milliseconds.
+  myHeartbeatTimer  = null;   // Interval timer triggers this.onHeartbeat()
+  myHeartbeatBims   = BigInt(250);
+  myLifetimeBims    = BigInt(0);
   
   onLoad() {
     this.myPollStatus = new PollStatus(
@@ -348,6 +353,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       action: () => this.onBtnTriggerNudge(),
       section: 'controls'
     })
+    //
+    myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims))
   }// onLoad()
   
   onMessage(data) {
@@ -419,14 +426,14 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     console.dir(inPublishedTally);
     //
     this.myPollStatus.importPublshedTally_FromJsonString(inPublishedTally);
-    this.hudShowPublishedTally();
+    this.updateHudState('tally-wanted');
     //
     const timeoutID_ShowingResults = setTimeout(this.instanceDoneShowingResults, 5000, this);
   }// onResultsReceived()
   
   onCleanupAfterPoll() {
     this.myPollStatus.resetForNextPoll();
-    this.hudShowChoice( this.myVoterStatus.pollChoice );
+    this.updateHudState();
   }// onCleanupAfterPoll()
 
   onBtnTriggerPoll() {
@@ -470,14 +477,35 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //console.log(`timeoutID: ${timeoutID_Tally}`);
   }// onBtnTriggerPoll
   
+  onHeartbeat() {
+    this.myLifetimeBims += this.myHeartbeatBims;
+    //
+    this.user.getPosition().then(inPosition => {
+      let existingChoice = this.myVoterStatus.onUserPositionUpdate(inPosition);
+      //
+      this.updateHudView();
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
+    
+    if ((this.myLifetimeBims % BigInt(2 * 60 * 1000)) < this.myHeartbeatBims){
+      console.log(`onHeartbeat ${this.myLifetimeBims} lifetime at a 2 min milestone`);
+    }
+  }// onHeartbeat()
+  
   onBtnTriggerNudge() {
     this.myPollStatus.resetForNextPoll();
   }
 
   onBtnClubs() {
-    this.castVote_OfCurUser('clubs');
-    this.hudShowChoice('clubs');
-    
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.setChoiceOverride('clubs', inPosition);
+      //this.hudShowChoice('clubs');
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
+    //const choiceOverride = 'clubs';
+    //this.castVote_OfCurUser('clubs');
     // let objUserOldPos = this.user.getPosition();
     // console.dir(objUserOldPos); // promise
     // let objSetPosRet = this.user.setPosition(11,1,31,false);
@@ -485,23 +513,37 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }
   
   onBtnDiamonds() {
-    this.castVote_OfCurUser('diamonds');
-    this.hudShowChoice('diamonds');
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.setChoiceOverride('diamonds', inPosition);
+      //this.hudShowChoice('diamonds');
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
   }
 
   onBtnHearts() {
-    this.castVote_OfCurUser('hearts');
-    this.hudShowChoice('hearts');
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.setChoiceOverride('hearts', inPosition);
+      //this.hudShowChoice('hearts');
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
   }
 
   onBtnSpades() {
-    this.castVote_OfCurUser('spades');
-    this.hudShowChoice('spades');
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.setChoiceOverride('spades', inPosition);
+      //this.hudShowChoice('spades');
+    }).catch(err => {
+      console.warn('Error fetching cur user position -- ', err)
+    });
   }
-  
+
+
+  /* --- *
   castVote_OfCurUser(inChoice) {
     this.myVoterStatus.pollChoice = inChoice;
-    
+    //this.myVoterStatus.setChoiceOverride(inChoice, inPosition);
     /* --- *
     const choiceProp = { choice: inChoice };
   
@@ -535,50 +577,86 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     }).catch(err => {
       console.warn('Error fetching cur user props -- ', err)
     })
-    /* --- */
+    /* --- *
   }
+  /* --- */
   
-  hudShowChoice( inChoice ) {
-    if ('clubs' == inChoice){
-      this.menus.postMessage({ action: 'hud-set',
-        src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
-      });
-    }else if('diamonds' == inChoice){
-      this.menus.postMessage({ action: 'hud-set',
-        src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
-      });
-    }else if('hearts' == inChoice){
-      this.menus.postMessage({ action: 'hud-set',
-        src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&hearts;&nbsp;</div>'
-      });
-    }else if('spades' == inChoice){
-      this.menus.postMessage({ action: 'hud-set',
-        src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
-      });
-    }else {
-      // No choice to show so clear hud.
-      this.menus.postMessage({ action: 'hud-clear' });
+  
+  updateHudView() {
+    let previousHudState = this.myHudState;
+    //
+    if(! previousHudState){
+      previousHudState = 'choice-wanted';
     }
-  }// hudShowChoice()
-  
-  hudShowPublishedTally() {
-    const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
-    const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
-    const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
-    const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
+    //
+    if('showing-tally' == previousHudState){
+      return;
+    }
+    //
+    if('tally-wanted' == previousHudState){
+      const ctClubs     = this.myPollStatus.getCountForPublishedChoice('clubs');
+      const ctDiamonds  = this.myPollStatus.getCountForPublishedChoice('diamonds');
+      const ctHearts    = this.myPollStatus.getCountForPublishedChoice('hearts');
+      const ctSpades    = this.myPollStatus.getCountForPublishedChoice('spades');
     
-    const htmlPollResults
-        = '<div style="color: black; background-color: #ffffff; font-size: 24px;">'
-            + 'Poll results:'
-            + `<br>${ctClubs} \u2663`
-            + `<br>${ctDiamonds} <span style="color: red;">\u2666</span>`
-            + `<br>${ctHearts} <span style="color: red;">\u2665</span>`
-            + `<br>${ctSpades} \u2660`
-        + '</div>';
+      const htmlPollResults
+          = '<div style="color: black; background-color: #ffffff; font-size: 24px;">'
+              + 'Poll results:'
+              + `<br>${ctClubs} \u2663`
+              + `<br>${ctDiamonds} <span style="color: red;">\u2666</span>`
+              + `<br>${ctHearts} <span style="color: red;">\u2665</span>`
+              + `<br>${ctSpades} \u2660`
+          + '</div>';
 
-    console.log(htmlPollResults);
+      console.log(htmlPollResults);
     
-    this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
-  }// hudShowPublishedTally()
+      this.menus.postMessage({ action: 'hud-set', src: htmlPollResults });
+      this.myHudState = 'showing-tally'';
+      return;
+    }
+    // Remaining possibilities include:
+    //  ||  ('choice-wanted'  == previousHudState)
+    //  ||  ('clubs'          == previousHudState)
+    //  ||  ('diamonds'       == previousHudState)
+    //  ||  ('hearts'         == previousHudState)
+    //  ||  ('spades'         == previousHudState)
+    //  ||  anything else is treated as abstention
+    //
+    let theChoice = this.myVoterStatus.pollChoice;
+    //
+    if(     ('choice-wanted'  == previousHudState)
+        ||  (theChoice        != previousHudState)
+    ){
+
+      if ('clubs' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&clubs;&nbsp;</div>'
+        });
+      }else if('diamonds' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&diams;&nbsp;</div>'
+        });
+      }else if('hearts' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: red; background-color: #ffffff; font-size: 64px; ">&nbsp;&hearts;&nbsp;</div>'
+        });
+      }else if('spades' == theChoice){
+        this.menus.postMessage({ action: 'hud-set',
+          src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
+        });
+      }else {
+        // No choice to show so clear hud.
+        this.menus.postMessage({ action: 'hud-clear' });
+      }
+      //
+      this.myHudState = theChoice;
+      return;
+    }
+    //throw 'Unhandled case in updateHudView()';
+  }// updateHudView()
+  
+  updateHudState(inState = 'choice-wanted') {
+    this.myHudState = inState;
+  }// updateHudState()
 
 }// class PollMenuPlugin
