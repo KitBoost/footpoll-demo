@@ -297,17 +297,36 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     // Who am I?
     this.user.getID().then(inUserID => {
       this.myVoterStatus = new VoterStatus(inUserID, 'abstain');
-      console.log(`I am ${this.myVoterStatus.userID}`);
+      console.log(`Tell new VoterStatus that I am ${this.myVoterStatus.userID}`);
     }).catch(err => {
       console.warn('Error fetching this.user.getID() in onLoad() -- ', err)
     })
     //
+    // Register component
+    this.objects.registerComponent(PollChoicePadComponent2, {
+        id:           'poll-choice-pad',
+        name:         'Poll Choice Pad',
+        description:  'Pad to trigger a poll choice. (v2)',
+        settings: [
+          {   id:   'poll-choice',
+              name: 'Choice',
+              type: 'text', default: 'hearts',
+              help: 'Choose one of the following:'
+                  + ' clubs, diamonds, hearts, spades, abstain.'
+          },{
+              id:   'activation-radius',
+              name: 'Activation Radius',
+              type: 'number', default: 2.0,
+              help: 'How far from center of pad will it be triggered by a user?'
+                  + ' Default is 2.0 meters.' },
+        ]
+    });
     // Prepare a HUD display.
     this.menus.register({
-      id: 'hud',
-      title: 'hudmenu-label',
-      text: 'hudmenu-text',
-      section: 'overlay-top',
+      id:       'hud',
+      title:    'hudmenu-label',
+      text:     'hudmenu-text',
+      section:  'overlay-top',
       panel: {
           iframeURL: this.paths.absolute('pollhud.html'),
           width: 500,
@@ -359,6 +378,15 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //
     this.myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims));
   }// onLoad()
+  
+  onPadEnabled(inLabel, inPosition, inRadius){
+    console.log(`Tell VoterStatus about pad with ${inLabel} ${inPosition} ${inRadius}`);
+    if (! this.myVoterStatus){
+      throw 'onPadEnabled fails if this.myVoterStatus is not ready';
+    }
+    //
+    
+  }// onPadEnabled()
   
   onMessage(data) {
     console.log(`I am ${this.myVoterStatus.userID} hearing message ${JSON.stringify(data)}`);
@@ -617,3 +645,53 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }// updateHudState()
 
 }// class PollMenuPlugin
+
+
+class PollChoicePadComponent2 extends BaseComponent {
+
+    /** Called when the component is loaded */
+    async onLoad() {
+      const theChoice   = this.getField('poll-choice');
+      const thePosition = {
+        "x" : this.fields.world_center_x,
+        "y" : this.fields.world_center_y,
+        "z" : this.fields.world_center_z
+      };
+      const theRadius   = this.getField('activation-radius');
+      
+      console.log(`Announce PollChoicePadComponent with ${theChoice} ${thePosition} ${theRadius}`);
+      console.dir(this);
+
+      // Add this pad to plugin list
+      this.plugin.onPadEnabled(theChoice, thePosition, theRadius);
+      
+      //this.plugin.portals.push(this)
+    }
+
+    // Called when the component is unloaded
+    onUnload() {
+      // This could be used to disable pad info that was copied.
+      // No urgent need to do so because no component ref was shared.
+      const theChoice   = this.getField('poll-choice');
+      const thePosition = {
+        "x" : this.fields.world_center_x,
+        "y" : this.fields.world_center_y,
+        "z" : this.fields.world_center_z
+      };
+      const theRadius   = this.getField('activation-radius');
+      
+      console.log(`Unloading PollChoicePadComponent with ${theChoice} ${thePosition} ${theRadius}`);
+      console.dir(this);
+    }// onUnload
+
+    // Called by the main plugin when the portal should be activated
+    //async activate() {
+    //}
+
+    // Called when a remote message is received
+    onMessage(msg) {
+    }
+
+}// class PollChoicePadComponent
+
+
