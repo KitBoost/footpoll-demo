@@ -49,15 +49,16 @@ class Position3d {
 
 class LabeledChoiceTriggerPad {
 
-  constructor(inLabel, inPosition, inRadius){
+  constructor(inLabel, inPosition, inRadius, inAbstainKey){
     console.log(`LabeledPosition constructor ${inLabel} ${inPosition} ${inRadius}`);
     if (! isValidPollChoiceName(inLabel)){
       throw `Invalid label name :${inLabel}:`;
     }
-
+    //
     this.label = inLabel;
     this.position = inPosition;
     this.radius = inRadius;
+    this.abstainKey = inAbstainKey;
   }// constructor()
   
   isPositionOnPad(inPosition){
@@ -71,7 +72,7 @@ class LabeledChoiceTriggerPad {
     if (this.isPositionOnPad(inPosition)){
       return this.label;
     }
-    return null;
+    return this.abstainKey;
   }// getLabelIfPositionOnPad()
 
 }// class LabeledChoiceTriggerPad
@@ -126,6 +127,8 @@ class VoterStatus {
   }
   
   onUserPositionUpdate(inPosition){
+    let hitChoice = this.abstainKey;
+    //
     // First check whether an override should maintain current choice.
     if (!! this.choiceOverridePosition){
       const distance
@@ -133,19 +136,29 @@ class VoterStatus {
             (this.choiceOverridePosition.x - inPosition.x) ** 2
           + (this.choiceOverridePosition.z - inPosition.z) ** 2);
       if (distance < this.choiceOverrideRadius){
-        return this.pollChoice;
+        hitChoice = this.pollChoice;
+        return hitChoice;
       }
       // Just left override area. Time to disable the override.
       this.choiceOverridePosition = null;
       this.resetPollChoice();
     }
-    // No override in effect, check pads.
-    /*---*
-    for (let pad in this.padList) {
-      let isHitChoice = pad.getLabelIfPositionOnPad(inPosition);
+    //
+    // No override in effect, check pads next.
+    //
+    // Assert that instance has been initialiazed with pad array as evidence.
+    if (! this.padList){ throw 'Unititialized instance.'; }
+    /*---*/
+    let pad = null;
+    for (let padIndex = 0; padIndex < this.padList.length; padIndex++) {
+      pad = this.padList[padIndex];
       //
-      if (!! isHitChoice){
-        this.pollChoice = isHitChoice;
+      hitChoice = pad.getLabelIfPositionOnPad(inPosition);
+      //
+      if (! hitChoice){ throw 'Truthy value assertion failure.'; }
+      //
+      if (hitChoice != this.abstainKey){
+        this.pollChoice = hitChoice;
         //
         // Optional optimization could be inserted here
         // by calling setChoiceOverride() with this pad center and radius.
@@ -155,11 +168,11 @@ class VoterStatus {
     }
     /*---*/
     // No pads nor overrides affecting.
-    return this.abstainKey;
+    return hitChoice;
   }// onUserPositionUpdate()
   
   pushNewPad(inLabel, inPosition, inRadius){
-    let newPad = new LabeledChoiceTriggerPad(inLabel, inPosition, inRadius);
+    let newPad = new LabeledChoiceTriggerPad(inLabel, inPosition, inRadius, this.abstainKey);
     this.padList.push(newPad);
   }
   
@@ -176,9 +189,23 @@ class VoterStatus {
     }
     //
     console.log('VoterStatus diagnosticCheck inPosition follows');
-    console.dir(inPosition);    
-    /*---*/
-  }
+    console.dir(inPosition);   
+    //
+    let label = this.abstainKey;
+    let pad = null;
+    for (let padIndex = 0; padIndex < this.padList.length; padIndex++) {
+      pad = this.padList[padIndex];
+      //
+      /*---*/
+      label = pad.getLabelIfPositionOnPad(inPosition);
+      //
+      if (! label){ throw 'Truthy value assertion failure.'; }
+      //
+      console.log(`VoterStatus diagnosticCheck a pad of type ${typeof pad} with ${label} at index ${padIndex} follows`);
+      console.dir(pad);
+      /*---*/
+    }
+  }// diagnosticCheckAtPosition
 }// class VoterStatus
 
 
