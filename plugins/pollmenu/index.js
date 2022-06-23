@@ -140,14 +140,20 @@ class VoterStatus {
       this.resetPollChoice();
     }
     // No override in effect, check pads.
+    /*---*
     for (let pad in this.padList) {
       let isHitChoice = pad.getLabelIfPositionOnPad(inPosition);
       //
       if (!! isHitChoice){
         this.pollChoice = isHitChoice;
+        //
+        // Optional optimization could be inserted here
+        // by calling setChoiceOverride() with this pad center and radius.
+        //
         return this.pollChoice;
       }
     }
+    /*---*/
     // No pads nor overrides affecting.
     return this.abstainKey;
   }// onUserPositionUpdate()
@@ -157,6 +163,22 @@ class VoterStatus {
     this.padList.push(newPad);
   }
   
+  diagnosticCheckAtPosition(inPosition){
+    // Figure out why onUserPositionUpdate was failing with TypeError: "x" is not a function
+    // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Not_a_function
+    let padListLength = (this.padList) ? this.padList.length : 0;
+    //
+    console.log(`VoterStatus diagnosticCheck padListLength ${padListLength} padList follows`);
+    if (!! this.padList){
+      console.dir(this.padList);
+    }else{
+      console.log('padList is null');
+    }
+    //
+    console.log('VoterStatus diagnosticCheck inPosition follows');
+    console.dir(inPosition);    
+    /*---*/
+  }
 }// class VoterStatus
 
 
@@ -167,23 +189,23 @@ class PollStatus {
     this.isUsingCatchAll      = isValidPollChoiceName(inCatchAllKey);
     this.tally                = new Object;
     this.recentPublishedTally = null;
-
+    //
     let needToAddCatchAll = this.isUsingCatchAll;
-    
+    //
     for (let index in inChoices) {
       let key = inChoices[index]
-      
+      //
       this.tally[key] = 0;
-      
+      //
       if (key == inCatchAllKey){
         needToAddCatchAll = false;
       }
     }
-    
+    //
     if (needToAddCatchAll){
       this.tally[inCatchAllKey] = 0;
     }
-    
+    //
     this.resetForNextPoll();
     console.log('eo Pollstatus.constructor');
   }// constructor()
@@ -301,7 +323,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   // static get constDefaultPadRadius(){   return PollMenuPlugin.#constDefaultPadRadius; }
   //
   // declare constants through class instance
-  //    this.constKeyAbstain
+  //    this.constKeyAbstainGot
   //    this.constDefaultPadRadius
   //
   #constKeyAbstain            = 'abstain';    get constKeyAbstain(){
@@ -333,10 +355,10 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     })
     //
     // Register component
-    this.objects.registerComponent(PollChoicePadComponent2, {
-        id:           'poll-choice-pad-v05',
+    this.objects.registerComponent(PollChoicePadComponent, {
+        id:           'poll-choice-pad',
         name:         'Poll Choice Pad',
-        description:  'Pad to trigger a poll choice. (v05)',
+        description:  'Pad to trigger a poll choice. (version 00-00-01)',
         settings: [
           {   id:     'poll-choice',
               name:   'Choice',
@@ -414,11 +436,9 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   
   onPadEnabled(inLabel, inPosition, inRadius){
     console.log(`Tell VoterStatus about pad with ${inLabel} ${inPosition} ${inRadius}`);
-    if (! this.myVoterStatus){
-      throw 'onPadEnabled fails if this.myVoterStatus is not ready';
-    }
+    if (! this.myVoterStatus){ throw 'onPadEnabled fails if this.myVoterStatus is not ready'; }
     //
-    
+    this.myVoterStatus.pushNewPad(inLabel, inPosition, inRadius);
   }// onPadEnabled()
   
   onMessage(data) {
@@ -549,7 +569,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }// onHeartbeat()
   
   onBtnTriggerNudge() {
-    this.myPollStatus.resetForNextPoll();
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.diagnosticCheckAtPosition(inPosition);
+    }).catch(err => {
+      console.warn('Error in onBtnTriggerNudge getPosition promise -- ', err)
+    });
+  
+    // No longer needed // this.myPollStatus.resetForNextPoll();
   }
 
   onBtnClubs() {
@@ -680,7 +706,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
 }// class PollMenuPlugin
 
 
-class PollChoicePadComponent2 extends BaseComponent {
+class PollChoicePadComponent extends BaseComponent {
 
   // Instance properties
   myCenter = null;
@@ -713,13 +739,11 @@ class PollChoicePadComponent2 extends BaseComponent {
     const thePosition = this.getPadCenter();
     const theRadius   = this.getPadRadius();
   
-    console.log(`Announce PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
+    console.log(`Loading PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
     console.dir(this);
 
     // Add this pad to plugin list
     this.plugin.onPadEnabled(theChoice, thePosition, theRadius);
-  
-    //this.plugin.portals.push(this)
   }
 
   // Called when the component is unloaded
