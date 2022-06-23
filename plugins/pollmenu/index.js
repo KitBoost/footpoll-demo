@@ -35,6 +35,18 @@ function isValidPollChoiceName(inName){
 }// isValidPollChoiceName
 
 
+class Position3d {
+  constructor(inX = 0.0, inY = 0.0, inZ = 0.0){
+    this.assign(inX, inY, inZ);
+  }
+  assign(inX, inY, inZ){
+    this.x = inX;
+    this.y = inY;
+    this.z = inZ;
+  }
+}// class Position3d
+
+
 class LabeledChoiceTriggerPad {
 
   constructor(inLabel, inPosition, inRadius){
@@ -280,6 +292,24 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   static get name()           { return 'Poll Menu' };
   static get description()    { return 'Presents a menu to query poll results.' };
   
+  // declare constants static (internal to class??)
+  //    PollMenuPlugin.constKeyAbstain
+  //    PollMenuPlugin.constDefaultPadRadius
+  // static    #constKeyAbstain            = 'abstain';
+  // static get constKeyAbstain(){         return PollMenuPlugin.#constKeyAbstain; }
+  // static    #constDefaultPadRadius      = 2.0;
+  // static get constDefaultPadRadius(){   return PollMenuPlugin.#constDefaultPadRadius; }
+  //
+  // declare constants through class instance
+  //    this.constKeyAbstain
+  //    this.constDefaultPadRadius
+  //
+  #constKeyAbstain            = 'abstain';    get constKeyAbstain(){
+    return this.#constKeyAbstain; }
+  #constDefaultPadRadius      = 2.0;          get constDefaultPadRadius(){
+    return this.#constDefaultPadRadius; }
+
+  
   // Client instance properties
   myVoterStatus     = null;   // My status as a voter.
   myPollStatus      = null;   // Status of current or recent poll.
@@ -304,19 +334,22 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //
     // Register component
     this.objects.registerComponent(PollChoicePadComponent2, {
-        id:           'poll-choice-pad',
+        id:           'poll-choice-pad-v05',
         name:         'Poll Choice Pad',
-        description:  'Pad to trigger a poll choice. (v2)',
+        description:  'Pad to trigger a poll choice. (v05)',
         settings: [
-          {   id:   'poll-choice',
-              name: 'Choice',
-              type: 'text', default: 'hearts',
-              help: 'Choose one of the following:'
-                  + ' clubs, diamonds, hearts, spades, abstain.'
+          {   id:     'poll-choice',
+              name:   'Choice',
+              type:   'select',
+              values: ['abstain', 'clubs', 'diamonds', 'hearts', 'spades'],
+              help:   'Choosing clubs, diamonds, hearts, or spades'
+                  +   ' will cause the pad to trigger this choice.'
+                  +   " Choosing 'abstain' will refrain from making a choice."
           },{
-              id:   'activation-radius',
-              name: 'Activation Radius',
-              type: 'number', default: 2.0,
+              id:      'activation-radius',
+              name:    'Activation Radius',
+              type:    'number',
+              default: 2.0,
               help: 'How far from center of pad will it be triggered by a user?'
                   + ' Default is 2.0 meters.' },
         ]
@@ -649,49 +682,73 @@ module.exports = class PollMenuPlugin extends BasePlugin {
 
 class PollChoicePadComponent2 extends BaseComponent {
 
-    /** Called when the component is loaded */
-    async onLoad() {
-      const theChoice   = this.getField('poll-choice');
-      const thePosition = {
-        "x" : this.fields.world_center_x,
-        "y" : this.fields.world_center_y,
-        "z" : this.fields.world_center_z
-      };
-      const theRadius   = this.getField('activation-radius');
-      
-      console.log(`Announce PollChoicePadComponent with ${theChoice} ${thePosition} ${theRadius}`);
-      console.dir(this);
+  // Instance properties
+  myCenter = null;
 
-      // Add this pad to plugin list
-      this.plugin.onPadEnabled(theChoice, thePosition, theRadius);
-      
-      //this.plugin.portals.push(this)
-    }
 
-    // Called when the component is unloaded
-    onUnload() {
-      // This could be used to disable pad info that was copied.
-      // No urgent need to do so because no component ref was shared.
-      const theChoice   = this.getField('poll-choice');
-      const thePosition = {
-        "x" : this.fields.world_center_x,
-        "y" : this.fields.world_center_y,
-        "z" : this.fields.world_center_z
-      };
-      const theRadius   = this.getField('activation-radius');
-      
-      console.log(`Unloading PollChoicePadComponent with ${theChoice} ${thePosition} ${theRadius}`);
-      console.dir(this);
-    }// onUnload
+  getPadChoice(){
+    return this.getField('poll-choice') ?? this.plugin.constKeyAbstain;
+  }
+  
+  getPadCenter(){
+    if (! this.myCenter) { throw 'Unititialized property of class instance'; }
+    //
+    this.myCenter.assign(
+      (this.fields.x    ?? 0.0),
+      0.0,
+      (this.fields.y    ?? 0.0) // Beware that this.fields diabolically swaps y for z.
+    );
+    return this.myCenter;
+  }
 
-    // Called by the main plugin when the portal should be activated
-    //async activate() {
-    //}
+  getPadRadius(){
+    return this.getField('activation-radius') ?? this.plugin.constDefaultPadRadius;
+  }
+  
+  // Called when the component is loaded
+  async onLoad() {
+    this.myCenter = new Position3d();
+  
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+  
+    console.log(`Announce PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
+    console.dir(this);
 
-    // Called when a remote message is received
-    onMessage(msg) {
-    }
+    // Add this pad to plugin list
+    this.plugin.onPadEnabled(theChoice, thePosition, theRadius);
+  
+    //this.plugin.portals.push(this)
+  }
+
+  // Called when the component is unloaded
+  onUnload() {
+    // This method could be used to disable pad info that was copied.
+    // No urgent need to do so because no component ref was shared.
+    //
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+  
+    console.log(`Unloading PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
+    console.dir(this);
+  }// onUnload
+
+  // Called when a remote message is received
+  onMessage(msg) {
+  }
+
+  onObjectUpdated(newFields){
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+    //
+    console.log(`onObjectUpdated with c x z r ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius} then newFields obj below`);
+    console.dir(newFields);
+  }// onObjectUpdated()
 
 }// class PollChoicePadComponent
 
 
+// EOF
