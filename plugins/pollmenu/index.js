@@ -158,10 +158,11 @@ class VoterStatus {
       if (! hitChoice){ throw 'Truthy value assertion failure.'; }
       //
       if (hitChoice != this.abstainKey){
-        this.pollChoice = hitChoice;
+        //this.pollChoice = hitChoice;
         //
         // Optional optimization could be inserted here
         // by calling setChoiceOverride() with this pad center and radius.
+        this.setChoiceOverride(hitChoice, pad.position, pad.radius);
         //
         return this.pollChoice;
       }
@@ -355,7 +356,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   //
   #constKeyAbstain            = 'abstain';    get constKeyAbstain(){
     return this.#constKeyAbstain; }
-  #constDefaultPadRadius      = 2.0;          get constDefaultPadRadius(){
+  #constDefaultPadRadius      = 3.0;          get constDefaultPadRadius(){
     return this.#constDefaultPadRadius; }
 
   
