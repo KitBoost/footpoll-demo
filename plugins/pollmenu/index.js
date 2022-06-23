@@ -35,17 +35,30 @@ function isValidPollChoiceName(inName){
 }// isValidPollChoiceName
 
 
+class Position3d {
+  constructor(inX = 0.0, inY = 0.0, inZ = 0.0){
+    this.assign(inX, inY, inZ);
+  }
+  assign(inX, inY, inZ){
+    this.x = inX;
+    this.y = inY;
+    this.z = inZ;
+  }
+}// class Position3d
+
+
 class LabeledChoiceTriggerPad {
 
-  constructor(inLabel, inPosition, inRadius){
+  constructor(inLabel, inPosition, inRadius, inAbstainKey){
     console.log(`LabeledPosition constructor ${inLabel} ${inPosition} ${inRadius}`);
     if (! isValidPollChoiceName(inLabel)){
       throw `Invalid label name :${inLabel}:`;
     }
-
+    //
     this.label = inLabel;
     this.position = inPosition;
     this.radius = inRadius;
+    this.abstainKey = inAbstainKey;
   }// constructor()
   
   isPositionOnPad(inPosition){
@@ -59,7 +72,7 @@ class LabeledChoiceTriggerPad {
     if (this.isPositionOnPad(inPosition)){
       return this.label;
     }
-    return null;
+    return this.abstainKey;
   }// getLabelIfPositionOnPad()
 
 }// class LabeledChoiceTriggerPad
@@ -114,6 +127,8 @@ class VoterStatus {
   }
   
   onUserPositionUpdate(inPosition){
+    let hitChoice = this.abstainKey;
+    //
     // First check whether an override should maintain current choice.
     if (!! this.choiceOverridePosition){
       const distance
@@ -121,30 +136,77 @@ class VoterStatus {
             (this.choiceOverridePosition.x - inPosition.x) ** 2
           + (this.choiceOverridePosition.z - inPosition.z) ** 2);
       if (distance < this.choiceOverrideRadius){
-        return this.pollChoice;
+        hitChoice = this.pollChoice;
+        return hitChoice;
       }
       // Just left override area. Time to disable the override.
       this.choiceOverridePosition = null;
       this.resetPollChoice();
     }
-    // No override in effect, check pads.
-    for (let pad in this.padList) {
-      let isHitChoice = pad.getLabelIfPositionOnPad(inPosition);
+    //
+    // No override in effect, check pads next.
+    //
+    // Assert that instance has been initialiazed with pad array as evidence.
+    if (! this.padList){ throw 'Unititialized instance.'; }
+    /*---*/
+    let pad = null;
+    for (let padIndex = 0; padIndex < this.padList.length; padIndex++) {
+      pad = this.padList[padIndex];
       //
-      if (!! isHitChoice){
-        this.pollChoice = isHitChoice;
+      hitChoice = pad.getLabelIfPositionOnPad(inPosition);
+      //
+      if (! hitChoice){ throw 'Truthy value assertion failure.'; }
+      //
+      if (hitChoice != this.abstainKey){
+        //this.pollChoice = hitChoice;
+        //
+        // Optional optimization could be inserted here
+        // by calling setChoiceOverride() with this pad center and radius.
+        this.setChoiceOverride(hitChoice, pad.position, pad.radius);
+        //
         return this.pollChoice;
       }
     }
+    /*---*/
     // No pads nor overrides affecting.
-    return this.abstainKey;
+    return hitChoice;
   }// onUserPositionUpdate()
   
   pushNewPad(inLabel, inPosition, inRadius){
-    let newPad = new LabeledChoiceTriggerPad(inLabel, inPosition, inRadius);
+    let newPad = new LabeledChoiceTriggerPad(inLabel, inPosition, inRadius, this.abstainKey);
     this.padList.push(newPad);
   }
   
+  diagnosticCheckAtPosition(inPosition){
+    // Figure out why onUserPositionUpdate was failing with TypeError: "x" is not a function
+    // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Not_a_function
+    let padListLength = (this.padList) ? this.padList.length : 0;
+    //
+    console.log(`VoterStatus diagnosticCheck padListLength ${padListLength} padList follows`);
+    if (!! this.padList){
+      console.dir(this.padList);
+    }else{
+      console.log('padList is null');
+    }
+    //
+    console.log('VoterStatus diagnosticCheck inPosition follows');
+    console.dir(inPosition);   
+    //
+    let label = this.abstainKey;
+    let pad = null;
+    for (let padIndex = 0; padIndex < this.padList.length; padIndex++) {
+      pad = this.padList[padIndex];
+      //
+      /*---*/
+      label = pad.getLabelIfPositionOnPad(inPosition);
+      //
+      if (! label){ throw 'Truthy value assertion failure.'; }
+      //
+      console.log(`VoterStatus diagnosticCheck a pad of type ${typeof pad} with ${label} at index ${padIndex} follows`);
+      console.dir(pad);
+      /*---*/
+    }
+  }// diagnosticCheckAtPosition
 }// class VoterStatus
 
 
@@ -155,23 +217,23 @@ class PollStatus {
     this.isUsingCatchAll      = isValidPollChoiceName(inCatchAllKey);
     this.tally                = new Object;
     this.recentPublishedTally = null;
-
+    //
     let needToAddCatchAll = this.isUsingCatchAll;
-    
+    //
     for (let index in inChoices) {
       let key = inChoices[index]
-      
+      //
       this.tally[key] = 0;
-      
+      //
       if (key == inCatchAllKey){
         needToAddCatchAll = false;
       }
     }
-    
+    //
     if (needToAddCatchAll){
       this.tally[inCatchAllKey] = 0;
     }
-    
+    //
     this.resetForNextPoll();
     console.log('eo Pollstatus.constructor');
   }// constructor()
@@ -280,6 +342,24 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   static get name()           { return 'Poll Menu' };
   static get description()    { return 'Presents a menu to query poll results.' };
   
+  // declare constants static (internal to class??)
+  //    PollMenuPlugin.constKeyAbstain
+  //    PollMenuPlugin.constDefaultPadRadius
+  // static    #constKeyAbstain            = 'abstain';
+  // static get constKeyAbstain(){         return PollMenuPlugin.#constKeyAbstain; }
+  // static    #constDefaultPadRadius      = 2.0;
+  // static get constDefaultPadRadius(){   return PollMenuPlugin.#constDefaultPadRadius; }
+  //
+  // declare constants through class instance
+  //    this.constKeyAbstainGot
+  //    this.constDefaultPadRadius
+  //
+  #constKeyAbstain            = 'abstain';    get constKeyAbstain(){
+    return this.#constKeyAbstain; }
+  #constDefaultPadRadius      = 3.0;          get constDefaultPadRadius(){
+    return this.#constDefaultPadRadius; }
+
+  
   // Client instance properties
   myVoterStatus     = null;   // My status as a voter.
   myPollStatus      = null;   // Status of current or recent poll.
@@ -297,17 +377,39 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     // Who am I?
     this.user.getID().then(inUserID => {
       this.myVoterStatus = new VoterStatus(inUserID, 'abstain');
-      console.log(`I am ${this.myVoterStatus.userID}`);
+      console.log(`Tell new VoterStatus that I am ${this.myVoterStatus.userID}`);
     }).catch(err => {
       console.warn('Error fetching this.user.getID() in onLoad() -- ', err)
     })
     //
+    // Register component
+    this.objects.registerComponent(PollChoicePadComponent, {
+        id:           'poll-choice-pad',
+        name:         'Poll Choice Pad',
+        description:  'Pad to trigger a poll choice. (version 00-00-01)',
+        settings: [
+          {   id:     'poll-choice',
+              name:   'Choice',
+              type:   'select',
+              values: ['abstain', 'clubs', 'diamonds', 'hearts', 'spades'],
+              help:   'Choosing clubs, diamonds, hearts, or spades'
+                  +   ' will cause the pad to trigger this choice.'
+                  +   " Choosing 'abstain' will refrain from making a choice."
+          },{
+              id:      'activation-radius',
+              name:    'Activation Radius',
+              type:    'number',
+              default: 2.0,
+              help: 'How far from center of pad will it be triggered by a user?'
+                  + ' Default is 2.0 meters.' },
+        ]
+    });
     // Prepare a HUD display.
     this.menus.register({
-      id: 'hud',
-      title: 'hudmenu-label',
-      text: 'hudmenu-text',
-      section: 'overlay-top',
+      id:       'hud',
+      title:    'hudmenu-label',
+      text:     'hudmenu-text',
+      section:  'overlay-top',
       panel: {
           iframeURL: this.paths.absolute('pollhud.html'),
           width: 500,
@@ -359,6 +461,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     //
     this.myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims));
   }// onLoad()
+  
+  onPadEnabled(inLabel, inPosition, inRadius){
+    console.log(`Tell VoterStatus about pad with ${inLabel} ${inPosition} ${inRadius}`);
+    if (! this.myVoterStatus){ throw 'onPadEnabled fails if this.myVoterStatus is not ready'; }
+    //
+    this.myVoterStatus.pushNewPad(inLabel, inPosition, inRadius);
+  }// onPadEnabled()
   
   onMessage(data) {
     console.log(`I am ${this.myVoterStatus.userID} hearing message ${JSON.stringify(data)}`);
@@ -488,7 +597,13 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }// onHeartbeat()
   
   onBtnTriggerNudge() {
-    this.myPollStatus.resetForNextPoll();
+    this.user.getPosition().then(inPosition => {
+      this.myVoterStatus.diagnosticCheckAtPosition(inPosition);
+    }).catch(err => {
+      console.warn('Error in onBtnTriggerNudge getPosition promise -- ', err)
+    });
+  
+    // No longer needed // this.myPollStatus.resetForNextPoll();
   }
 
   onBtnClubs() {
@@ -617,3 +732,75 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   }// updateHudState()
 
 }// class PollMenuPlugin
+
+
+class PollChoicePadComponent extends BaseComponent {
+
+  // Instance properties
+  myCenter = null;
+
+
+  getPadChoice(){
+    return this.getField('poll-choice') ?? this.plugin.constKeyAbstain;
+  }
+  
+  getPadCenter(){
+    if (! this.myCenter) { throw 'Unititialized property of class instance'; }
+    //
+    this.myCenter.assign(
+      (this.fields.x    ?? 0.0),
+      0.0,
+      (this.fields.y    ?? 0.0) // Beware that this.fields diabolically swaps y for z.
+    );
+    return this.myCenter;
+  }
+
+  getPadRadius(){
+    return this.getField('activation-radius') ?? this.plugin.constDefaultPadRadius;
+  }
+  
+  // Called when the component is loaded
+  async onLoad() {
+    this.myCenter = new Position3d();
+  
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+  
+    console.log(`Loading PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
+    console.dir(this);
+
+    // Add this pad to plugin list
+    this.plugin.onPadEnabled(theChoice, thePosition, theRadius);
+  }
+
+  // Called when the component is unloaded
+  onUnload() {
+    // This method could be used to disable pad info that was copied.
+    // No urgent need to do so because no component ref was shared.
+    //
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+  
+    console.log(`Unloading PollChoicePadComponent with ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius}`);
+    console.dir(this);
+  }// onUnload
+
+  // Called when a remote message is received
+  onMessage(msg) {
+  }
+
+  onObjectUpdated(newFields){
+    const theChoice   = this.getPadChoice();
+    const thePosition = this.getPadCenter();
+    const theRadius   = this.getPadRadius();
+    //
+    console.log(`onObjectUpdated with c x z r ${theChoice} ${thePosition.x} ${thePosition.z} ${theRadius} then newFields obj below`);
+    console.dir(newFields);
+  }// onObjectUpdated()
+
+}// class PollChoicePadComponent
+
+
+// EOF
