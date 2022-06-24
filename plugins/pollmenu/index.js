@@ -342,16 +342,17 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   static get name()           { return 'Poll Menu' };
   static get description()    { return 'Presents a menu to query poll results.' };
   
-  // declare constants static (internal to class??)
-  //    PollMenuPlugin.constKeyAbstain
-  //    PollMenuPlugin.constDefaultPadRadius
-  // static    #constKeyAbstain            = 'abstain';
-  // static get constKeyAbstain(){         return PollMenuPlugin.#constKeyAbstain; }
-  // static    #constDefaultPadRadius      = 2.0;
-  // static get constDefaultPadRadius(){   return PollMenuPlugin.#constDefaultPadRadius; }
+  // declare some constants with a private static property accessible via static getter.
+  //    PollMenuPlugin.constAdminOnlyPolling
+  //    PollMenuPlugin.constEnableAdminDebugUi
   //
-  // declare constants through class instance
-  //    this.constKeyAbstainGot
+  static    #constAdminOnlyPolling        = false;
+  static get constAdminOnlyPolling(){     return PollMenuPlugin.#constAdminOnlyPolling; }
+  static    #constEnableAdminDebugUi      = false;
+  static get constEnableAdminDebugUi(){   return PollMenuPlugin.#constEnableAdminDebugUi; }
+  //
+  // declare some constants through class instance
+  //    this.constKeyAbstain
   //    this.constDefaultPadRadius
   //
   #constKeyAbstain            = 'abstain';    get constKeyAbstain(){
@@ -372,11 +373,11 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   
   onLoad() {
     this.myPollStatus = new PollStatus(
-      ['clubs', 'diamonds', 'hearts', 'spades'], 'abstain');
+      ['clubs', 'diamonds', 'hearts', 'spades'], this.constKeyAbstain );
     //
     // Who am I?
     this.user.getID().then(inUserID => {
-      this.myVoterStatus = new VoterStatus(inUserID, 'abstain');
+      this.myVoterStatus = new VoterStatus(inUserID, this.constKeyAbstain );
       console.log(`Tell new VoterStatus that I am ${this.myVoterStatus.userID}`);
     }).catch(err => {
       console.warn('Error fetching this.user.getID() in onLoad() -- ', err)
@@ -391,7 +392,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
           {   id:     'poll-choice',
               name:   'Choice',
               type:   'select',
-              values: ['abstain', 'clubs', 'diamonds', 'hearts', 'spades'],
+              values: [ this.constKeyAbstain,
+                        'clubs', 'diamonds', 'hearts', 'spades'],
               help:   'Choosing clubs, diamonds, hearts, or spades'
                   +   ' will cause the pad to trigger this choice.'
                   +   " Choosing 'abstain' will refrain from making a choice."
@@ -422,7 +424,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       id: 'menu-poll',
       icon: this.paths.absolute('pollmenu-btn.png'),
       text: 'Poll',
-      adminOnly: true,
+      adminOnly: PollMenuPlugin.constAdminOnlyPolling,
       action: () => this.onBtnTriggerPoll(),
       section: 'controls'
     });
@@ -450,14 +452,17 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       text: 'Spades',
       action: () => this.onBtnSpades(),
     });
-    this.menus.register({
-      id: 'menu-nudge',
-      icon: this.paths.absolute('pollmenu-btn.png'),
-      text: 'Nudge',
-      adminOnly: true,
-      action: () => this.onBtnTriggerNudge(),
-      section: 'controls'
-    });
+    //
+    if (PollMenuPlugin.constEnableAdminDebugUi){
+      this.menus.register({
+        id: 'menu-nudge',
+        icon: this.paths.absolute('pollmenu-btn.png'),
+        text: 'Nudge',
+        adminOnly: true,
+        action: () => this.onBtnTriggerNudge(),
+        section: 'controls'
+      });
+    }
     //
     this.myHeartbeatTimer = setInterval(this.onHeartbeat.bind(this), Number(this.myHeartbeatBims));
   }// onLoad()
@@ -683,12 +688,12 @@ module.exports = class PollMenuPlugin extends BasePlugin {
       return;
     }
     // Remaining possibilities include:
-    //  ||  ('choice-wanted'  == previousHudState)
-    //  ||  ('clubs'          == previousHudState)
-    //  ||  ('diamonds'       == previousHudState)
-    //  ||  ('hearts'         == previousHudState)
-    //  ||  ('spades'         == previousHudState)
-    //  ||  ('abstain'        == previousHudState)
+    //  ||  ('choice-wanted'      == previousHudState)
+    //  ||  ('clubs'              == previousHudState)
+    //  ||  ('diamonds'           == previousHudState)
+    //  ||  ('hearts'             == previousHudState)
+    //  ||  ('spades'             == previousHudState)
+    //  ||  (this.constKeyAbstain == previousHudState)
     //
     let theChoice = this.myVoterStatus.pollChoice;
     //
@@ -713,8 +718,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
           src: '<div style="color: black; background-color: #ffffff; font-size: 64px; ">&nbsp;&spades;&nbsp;</div>'
         });
       }else {
-        if ('abstain' != theChoice){
-          console.error(`updateHudView expected 'abstain' but got ${theChoice}`);
+        if (this.constKeyAbstain != theChoice){
+          console.error(`updateHudView expected ${this.constKeyAbstain} but got ${theChoice}`);
         }
         // No choice to show so clear hud.
         this.menus.postMessage({ action: 'hud-clear' });
