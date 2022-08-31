@@ -348,7 +348,7 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   //
   static    #constAdminOnlyPolling        = false;
   static get constAdminOnlyPolling(){     return PollMenuPlugin.#constAdminOnlyPolling; }
-  static    #constEnableAdminDebugUi      = false;
+  static    #constEnableAdminDebugUi      = true;
   static get constEnableAdminDebugUi(){   return PollMenuPlugin.#constEnableAdminDebugUi; }
   //
   // declare some constants through class instance
@@ -360,6 +360,8 @@ module.exports = class PollMenuPlugin extends BasePlugin {
   #constDefaultPadRadius      = 3.0;          get constDefaultPadRadius(){
     return this.#constDefaultPadRadius; }
 
+  // Experimental Doodad
+  myDoodad  = null;
   
   // Client instance properties
   myVoterStatus     = null;   // My status as a voter.
@@ -459,7 +461,10 @@ module.exports = class PollMenuPlugin extends BasePlugin {
         icon: this.paths.absolute('pollmenu-btn.png'),
         text: 'Nudge',
         adminOnly: true,
-        action: () => this.onBtnTriggerNudge(),
+        // Enable diagnostic method of choice.
+        //action: () => this.onBtnTriggerNudge(),
+        //action: () => this.onBtnInspectDoodad(),
+        action: () => this.onBtnTestDoodad(),
         section: 'controls'
       });
     }
@@ -607,9 +612,55 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     }).catch(err => {
       console.warn('Error in onBtnTriggerNudge getPosition promise -- ', err)
     });
-  
-    // No longer needed // this.myPollStatus.resetForNextPoll();
   }
+  
+  onBtnInspectDoodad() {
+    this.myDoodad = this.paths.absolute('doodad.json');
+    /* --- */
+    console.log(`myDoodad type: ${typeof this.myDoodad}`);
+    console.dir(this.myDoodad);
+    /* --- */
+    const aReq = new XMLHttpRequest();
+    /* --- */
+    console.log(`aReq type: ${typeof aReq}`);
+    console.dir(aReq);
+    /* --- */
+    // browser
+    const nVer = navigator.appVersion;
+    const strAgt = navigator.userAgent;
+    const strBrowser = navigator.appName;
+    /* --- */
+    console.log(`strAgt: ${strAgt}`);
+    console.log(`strBrowser: ${strBrowser}`);
+    console.dir(navigator);
+    /* --- */
+    const aFileReader = new FileReader();
+    console.log(`aFileReader type: ${typeof aFileReader}`);
+    console.dir(aFileReader);    
+  }// onBtnInspectDoodad
+
+  onDoodadFileLoading(inEvt) {
+  }// onDoodadFileLoading
+
+  onDoodadFileLoadSuccess(inEvt) {
+    console.log(`onDoodadFileLoadSuccess`);
+  }// onDoodadFileLoadSuccess
+
+  onDoodadFileLoadError(inEvt) {
+    console.log(`onDoodadFileLoadError`);
+  }// onDoodadFileLoadError
+
+  onBtnTestDoodad() {
+    const aFileReader = new FileReader();
+    
+    // Read file into memory as UTF-8
+    aFileReader.readAsText(this.paths.absolute('doodad.json'), "UTF-8");
+
+    // Handle progress, success, and errors
+    aFileReader.onprogress  = onDoodadFileLoading;
+    aFileReader.onload      = onDoodadFileLoadSuccess;
+    aFileReader.onerror     = onDoodadFileLoadError;    
+  }// onBtnTestDoodad
 
   onBtnClubs() {
     this.user.getPosition().then(inPosition => {
