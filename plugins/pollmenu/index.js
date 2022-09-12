@@ -639,27 +639,20 @@ module.exports = class PollMenuPlugin extends BasePlugin {
     console.dir(aFileReader);    
   }// onBtnInspectDoodad
 
-  onDoodadFileLoading(inEvt) {
-  }// onDoodadFileLoading
-
-  onDoodadFileLoadSuccess(inEvt) {
-    console.log(`onDoodadFileLoadSuccess`);
-  }// onDoodadFileLoadSuccess
-
-  onDoodadFileLoadError(inEvt) {
-    console.log(`onDoodadFileLoadError`);
-  }// onDoodadFileLoadError
-
   onBtnTestDoodad() {
-    const aFileReader = new FileReader();
-    
-    // Read file into memory as UTF-8
-    aFileReader.readAsText(this.paths.absolute('doodad.json'), "UTF-8");
-
-    // Handle progress, success, and errors
-    aFileReader.onprogress  = onDoodadFileLoading;
-    aFileReader.onload      = onDoodadFileLoadSuccess;
-    aFileReader.onerror     = onDoodadFileLoadError;    
+    fetch(`https://miniops-srv.glitch.me/version`)
+      .then(response => response.json()) // parse the JSON from the server
+      .then(inRespPayload => {
+        /*--------------------*/
+        console.log( "onBtnTestDoodad fetch.then" );
+        console.dir(inRespPayload);
+        /*--------------------*/
+      })
+      .catch(err => {
+        /*--------------------*/
+        console.error("onBtnTestDoodad fetch.catch response; ", err);
+        /*--------------------*/
+    });
   }// onBtnTestDoodad
 
   onBtnClubs() {

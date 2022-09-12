@@ -1,4 +1,5 @@
 const MergeIntoSingleFilePlugin = require('webpack-merge-and-include-globally');
+// see https://www.npmjs.com/package/webpack-merge-and-include-globally
 
 module.exports = {
   mode: 'none',
