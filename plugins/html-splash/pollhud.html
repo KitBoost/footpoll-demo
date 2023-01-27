@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui" />
+    </head>
+    <body>
+
+      <div id="hud-elem" style="font-family: 'Helvetica Neue', Helvetica, Arial; text-align: center; top: 200px; width: 600px">
+      </div>
+
+      <!-- Code -->
+      <script lang="js">
+
+        // Called when a message is received from the plugin
+        window.addEventListener('message', function (e) {
+        
+          if (e.data.action === 'hud-set') {
+            console.log("hud-set");    
+            document.getElementById('hud-elem').innerHTML = e.data.src
+          }
+
+          if (e.data.action === 'hud-clear') {
+            console.log("hud-clear");    
+            document.getElementById('hud-elem').innerHTML = ''
+          }
+
+        })
+
+      </script>
+      
+    </body>
+</html>
